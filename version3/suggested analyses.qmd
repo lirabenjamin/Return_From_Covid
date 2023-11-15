@@ -1,0 +1,125 @@
+---
+title: Reviewer Suggested Analyses
+---
+
+Here is the reproduced text from the review, with my best attempt at parsing his math notation.
+
+The pattern of results reported on Figure 1 is pretty compelling evidence that students benefitted from returning to in-person schooling. Nonetheless, I find some of the decisions about research design to be odd. I think that there is a stronger design available to the authors that can be simply applied within these same data. 
+
+If I understand correctly, the authors have run separate regressions for each quarter in the post-period. Quarters 5 – 8 are periods where some students were in remote environments, and Quarters 9 – 12 all students were in in-person environments. Each of these regressions controls for GPA in Quarters 1 – 4, which are the four quarters during the year prior to the introduction of remote schooling as an option. The regressions also control for some observed student characteristics and a school fixed-effect. They then plot the estimate for $\beta$ derived from each of the 8 respective regressions on Figure 1. 
+
+If my above description of the analysis is correct, then this analysis appears quite non-standard to me, and I think that the authors are leaving a more compelling design on the table. 
+
+It seems to me that the authors could pursue a more conventional (and more compelling) difference-in-difference approach with an event-study analysis for good measure. This would mean pooling the data into a panel where each observation is a student-quarter, and the data includes all Quarters 1 – 12. Let $t$ index the quarter (1-12), $i$ the student, and $s$ the school. The difference-in-difference is then a single regression with student and school fixed-effects and time-variant controls measuring differences in student performance during the period in which some students are receiving remote instruction (Remote) – that is, it equals 1 during periods 5-8 and equals 0 in the other periods – and an interaction between that period and an indicator for whether the student ever received remote instruction (EverRemote). 
+
+
+## Dif-in-Dif
+$$
+y_{ist}= \alpha+\gamma X_{ist}+ \beta Remote_t+ \theta (Remote_t \times EverRemote_i)+\delta_i+\eta_s+\epsilon_{ist}
+$$
+
+In this regression, $\beta$ is the difference in GPA during periods with and without remote instruction available for those students who are always in-person and $\theta$ is any additional impact of the remote period among those who do receive remote instruction during that period. (Since all students were treated at the same time, this analysis should not trigger any of the recent potential objections to the difference-in-difference approach.)
+
+The authors could then also estimate an event-study version of this model that is more aligned with their current Figure 1. Indeed, unless it is estimated imprecisely, I’d find this analysis to be even more compelling than the Dif-in-Dif approach. The model would still incorporate student fixed effects. But it replaces the dummy for the remote period with year fixed effects and interactions between EverRemote and the year fixed effects. 
+
+## Event Study
+
+$$
+y_{ist}= \alpha+ \gamma X_ist  + \sum_{t=1}^{12} \psi_t + \left( \sum_{t=1}^{12} \lambda_t\times EverRemote_i \right)+\delta_i+\eta_s+\mu_{ist}
+$$
+
+The author could then plot each of the λt’s similar to the current Figure 1, but with (meaningful) confidence intervals around each. I’d recommend the omitted period to be Quarter 4 – the period immediately following the availability of remote schooling. We would expect to see $\lambda_1 - \lambda_3$ near zero and insignificant indicating a lack of prior trend in GPA of eventually remote students relative to never-remote students, then $\lambda_5 - \lambda_8$ negative and progressively trending downward as the ever-remote students receive remote instruction and the other students do not, and then $\lambda_9 - \lambda_{12}$ trending upward and potentially (if consistent with current Figure 1) not significantly different from zero.
+
+The above approach makes more complete use of the available data than does what the authors are currently presenting. One benefit of this approach is that by incorporating student fixed effects the analysis holds constant all time-invariant factors that could be associated with the choice of remote instruction – this is potentially more compelling than holding these attributes constant by controlling for GPA in Quarters 1 – 4, which is the author’s current approach. 
+
+Further, this panel data approach also allows for direct inference on the relationships of interest. The p-value reported on Table I in the Online Appendix, which I understand are the basis for Figure 1 in the body of the manuscript, are evaluating significance in the difference in average GPA of ever-remote and never-remote students each period. But that’s not what the authors aim to estimate. Rather, the authors are interested in measuring whether GPA changed differently for ever-remote vs never-remote students across the periods. It’s possible to get that estimate from the analysis as it is presented, but it’s not currently reflected in the presentation of results. Indeed, if we are to take their current estimates at face value, the author’s description of their results on pg. 16 drastically understates the impact they are measuring. “By the end of the school year, remote students were d= 0.17 standard deviations below their in-person counterparts”. But, these students started 0.17 standard deviations above their counterparts, so the effect at that point (not the average effect, though) would be more like 0.34 standard deviations!
+
+I should say that I strongly suspect that the results from the above analysis would be very similar to what the authors report in the current manuscript. Nonetheless, as a reader it would strike me as odd to see an analysis that uses less of the available data than is available, especially when the approach I outline is much more the standard, at least in education policy papers.
+
+# Resuts in our data
+
+## Data cleaning
+I have used the analysis-file-2.dta, which is the most recent one I have. It has 20,951 observations of 94 variables. I am keepng only people in the `samp_overall_goa_hs_covars == 1`, and focusing on the `overall_gpa` variable.
+
+```{r}
+data <- haven::read_dta("../version2/gpa_analysis_file-2.dta")
+
+data = data |> filter(samp_overall_gpa_hs_covars == 1)
+```
+
+Here I am making the dataset in panel format. Each row is a student-quarter. I am keeping only the variables that are used in the analysis. I am also creating a variable called `period` which is the quarter number. I am making quarter 4 the reference category.
+
+```{r}
+#| warning: false
+data = data %>% 
+  select(student_id, remote_spring2021, bl_school_id,  matches("overall_gpa_non")) %>% 
+  pivot_longer(cols = -c(student_id, remote_spring2021, bl_school_id), names_to = "quarter", values_to = "gpa") %>% 
+  separate(quarter, into = c("quarter", "year"), sep = "_") %>%
+  mutate(quarter = parse_number(quarter)) %>% 
+  mutate(year = parse_number(year)) %>% 
+  mutate(period = (year*4 + quarter)-76)
+
+data = data %>% 
+  mutate(remote_t = ifelse(period %in% 5:8, 1, 0),
+  period_dummies = factor(period))
+
+data = data %>% 
+  # make period 4 be the reference category
+  mutate(period_dummies = fct_relevel(period_dummies, "4"))
+```
+
+I will now run both models. I may be wrong about this, but I have the following notes regarding the reviewer's specifications: 
+
+- In both analyses, we have no time-variant controls. All controls are at baseline, so there is no variation of them within person. Thus, there is no $X_{ist}$ in the model. 
+- In the same way, there is no variation in school, after accounting for each student, so there is no $\eta_s$ in the model.
+- I believe that $\delta_i$, the student fixed effect, is included in both models, by the `index = student_id` part of the command.
+
+Please, confirm whether this makes sense to you and whether there is anything else I should consider, such as particular treatment of errors.
+
+## Difference in Difference
+
+Overall, when students had the choice to be remote or in-person, students scored one fewer GPA point. Students who chose to be remote scored 0.2 GPA points lower than that, relative to in-person students during that time. Note. I accidentally ran `core_gpa` the first time, which produces a non-significant result. 
+
+```{r}
+#| message: false
+library(plm)
+library(gt)
+```
+```{r}
+model <- plm(gpa ~ remote_t + remote_t:remote_spring2021 + factor(bl_school_id), data = data, index = c("student_id", "period"), model = "within")
+model %>% broom::tidy(conf.int = TRUE) %>% gt() %>% fmt_auto()
+model %>% summary()
+```
+
+### Event Model
+
+This produces a result closer to what we originally had in our paper. While estimates for $lambda_5$ and $lambda_6$ are positive, the estimates for $\lambda_7$ and $\lambda_8$ are significant and negative. The resulting plot shows the same pattern as the one in the paper.
+```{r}
+model_event <- plm(gpa ~ remote_spring2021*period_dummies, data = data, index = c("student_id", "period"), model = "within")
+model_event %>% broom::tidy(conf.int = TRUE) %>% gt() %>% fmt_auto()
+model_event %>% summary()
+```
+```{r}
+#| results: asis
+stargazer::stargazer(model, model_event, type = "html", star.cutoffs = c(.05, .01, .001))
+```
+```{r}
+model_event %>%
+  broom::tidy(conf.int = TRUE) %>% 
+  mutate(
+    term_type = ifelse(str_detect(term, "remote_spring2021"), "interaction", "fixed"),
+    term = str_remove(term, "remote_spring2021:"),
+    period = parse_number(term),
+   ) %>% 
+  select(period, term = term_type, estimate, conf.high, conf.low) %>% 
+  filter(term == "interaction") %>%
+  add_row(period = 4, term = "interaction", estimate = 0, conf.high = 0 , conf.low = 0) %>% 
+  ggplot(aes(period, estimate)) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), fill = "gray80")+
+  geom_line() +
+  geom_point()+ 
+  scale_x_continuous(breaks = 1:12)+ 
+  geom_hline(yintercept = 0, color = "gray", linetype = 2)+ 
+  geom_vline(xintercept = c(4.5,8.5), color = "gray", linetype = 2)+ 
+  labs(x = "Quarter", y = "GPA\n(Difference between remote and\nin-person students)")
+```
