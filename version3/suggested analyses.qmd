@@ -10,7 +10,7 @@ If I understand correctly, the authors have run separate regressions for each qu
 
 If my above description of the analysis is correct, then this analysis appears quite non-standard to me, and I think that the authors are leaving a more compelling design on the table. 
 
-It seems to me that the authors could pursue a more conventional (and more compelling) difference-in-difference approach with an event-study analysis for good measure. This would mean pooling the data into a panel where each observation is a student-quarter, and the data includes all Quarters 1 – 12. Let $t$ index the quarter (1-12), $i$ the student, and $s$ the school. The difference-in-difference is then a single regression with student and school fixed-effects and time-variant controls measuring differences in student performance during the period in which some students are receiving remote instruction (Remote) – that is, it equals 1 during periods 5-8 and equals 0 in the other periods – and an interaction between that period and an indicator for whether the student ever received remote instruction (EverRemote). 
+It seems to me that the authors could pursue a more conventional (and more compelling) difference-in-difference approach with an event-study analysis for good measure. This would mean pooling the data into a panel where each observation is a student-quarter, and the data includes all Quarters 1 – 12. Let $t$ index the quarter (1-12), $i$ the student, and $s$ the school. The difference-in-difference is then a single regression with student and school fixed-effects and time-variant controls measuring differences in student performance during the period in which some students are receiving remote instruction ($Remote$) – that is, it equals 1 during periods 5-8 and equals 0 in the other periods – and an interaction between that period and an indicator for whether the student ever received remote instruction ($EverRemote$). 
 
 
 ## Dif-in-Dif
@@ -88,7 +88,6 @@ library(gt)
 ```{r}
 model <- plm(gpa ~ remote_t + remote_t:remote_spring2021 + factor(bl_school_id), data = data, index = c("student_id", "period"), model = "within")
 model %>% broom::tidy(conf.int = TRUE) %>% gt() %>% fmt_auto()
-model %>% summary()
 ```
 
 ### Event Model
@@ -97,7 +96,6 @@ This produces a result closer to what we originally had in our paper. While esti
 ```{r}
 model_event <- plm(gpa ~ remote_spring2021*period_dummies, data = data, index = c("student_id", "period"), model = "within")
 model_event %>% broom::tidy(conf.int = TRUE) %>% gt() %>% fmt_auto()
-model_event %>% summary()
 ```
 ```{r}
 #| results: asis
@@ -122,4 +120,10 @@ model_event %>%
   geom_hline(yintercept = 0, color = "gray", linetype = 2)+ 
   geom_vline(xintercept = c(4.5,8.5), color = "gray", linetype = 2)+ 
   labs(x = "Quarter", y = "GPA\n(Difference between remote and\nin-person students)")
+```
+
+## Extra notes from model summaries
+```{r}
+model %>% summary()
+model_event %>% summary()
 ```

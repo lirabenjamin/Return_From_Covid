@@ -68,7 +68,7 @@ model_event %>%
   filter(term == "interaction") %>%
   add_row(period = 4, term = "interaction", estimate = 0, conf.high = 0 , conf.low = 0) %>% 
   ggplot(aes(period, estimate)) +
-  geom_ribbon(aes(ymin = conf.high, ymax = conf.high), alpha = 0.42, fill = "red")+
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high), fill = "gray30")+
   geom_line() +
   geom_point()+ 
   scale_x_continuous(breaks = 1:12)+ 
